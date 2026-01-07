@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: adham-wa-sms
+    env: docker
+    healthCheckPath: /health
+    autoDeploy: true

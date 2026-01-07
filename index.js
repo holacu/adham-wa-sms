@@ -18,6 +18,8 @@ const client = new Client({
     authStrategy: new LocalAuth({
         dataPath: './sessions'
     }),
+    authTimeoutMs: 300000,  // 5 minutes total timeout
+    qrTimeoutMs: 300000,    // 5 minutes per QR code
     puppeteer: {
         headless: true,
         args: [
@@ -217,6 +219,11 @@ app.get('/', (req, res) => {
             </body>
         </html>
     `);
+});
+
+// Health Check (for Render)
+app.get('/health', (req, res) => {
+    res.status(200).send('OK');
 });
 
 // Status Check
