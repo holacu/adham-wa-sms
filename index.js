@@ -16,6 +16,8 @@ const client = new Client({
     authStrategy: new LocalAuth({
         dataPath: './sessions'
     }),
+    authTimeoutMs: 120000, // 2 minutes to handle slow free-tier handshake
+    qrMaxRetries: 15,      // More retries before timing out
     puppeteer: {
         headless: true,
         args: [
@@ -59,7 +61,33 @@ client.on('disconnected', (reason) => {
     console.log('Client was logged out', reason);
 });
 
-client.initialize();
+// Catch unhandled rejections for the client
+client.initialize().catch(err => {
+    console.error('CLIENT INITIALIZE ERROR:', err);
+});
+
+// Emergency Reset Endpoint
+app.get('/reset', async (req, res) => {
+    try {
+        const fs = require('fs');
+        const path = require('path');
+        const sessionPath = path.join(__dirname, 'sessions');
+
+        console.log('RESETTING SESSION...');
+
+        if (fs.existsSync(sessionPath)) {
+            // Native recursive delete for Node.js 14.14+
+            fs.rmSync(sessionPath, { recursive: true, force: true });
+        }
+
+        res.send('<h1>Session Cleared!</h1><p>The server will restart. Please refresh in 10 seconds.</p><script>setTimeout(()=>location.href="/qr", 5000)</script>');
+
+        // Let the server exit so it restarts fresh (Render will restart it)
+        setTimeout(() => process.exit(0), 1000);
+    } catch (error) {
+        res.status(500).send('Reset failed: ' + error.message);
+    }
+});
 
 /**
  * API Endpoints
@@ -181,4 +209,9 @@ async function handleSend(phone, message, res) {
 
 app.listen(port, () => {
     console.log(`WA Bridge Server running on port ${port}`);
+});
+
+// Global unhandled promise rejection handler
+process.on('unhandledRejection', (reason, promise) => {
+    console.error('Unhandled Rejection at:', promise, 'reason:', reason);
 });
