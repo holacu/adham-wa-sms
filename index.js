@@ -1,6 +1,7 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
-const qrcode = require('qrcode-terminal');
 const express = require('express');
+const qrcode = require('qrcode-terminal');
+const qr = require('qr-image');
 const cors = require('cors');
 require('dotenv').config();
 
@@ -95,6 +96,24 @@ app.get('/qr', (req, res) => {
             </body>
         </html>
     `);
+});
+
+// QR Image Endpoint (Returns PNG)
+app.get('/qr-image', (req, res) => {
+    if (isReady) {
+        return res.status(200).send('Connected');
+    }
+    if (!qrCodeData) {
+        return res.status(404).send('QR not available yet');
+    }
+
+    if (req.query.download) {
+        res.setHeader('Content-Disposition', 'attachment; filename=whatsapp-qr.png');
+    }
+
+    const code = qr.image(qrCodeData, { type: 'png', size: 10 });
+    res.type('png');
+    code.pipe(res);
 });
 
 // Send Message Endpoint (Manual/General)
