@@ -1,0 +1,16 @@
+{
+    "name": "server_sky",
+    "version": "1.0.0",
+    "description": "WhatsApp Automation Backend for Adham Sky",
+    "main": "index.js",
+    "scripts": {
+        "start": "node index.js"
+    },
+    "dependencies": {
+        "express": "^4.18.2",
+        "whatsapp-web.js": "^1.23.0",
+        "qrcode": "^1.5.3",
+        "cors": "^2.8.5",
+        "body-parser": "^1.20.2"
+    }
+}
