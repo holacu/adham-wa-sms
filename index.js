@@ -10,6 +10,8 @@ const port = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+const puppeteer = require('puppeteer');
+
 // Initialize WhatsApp Client
 const client = new Client({
     authStrategy: new LocalAuth({
@@ -27,7 +29,7 @@ const client = new Client({
             '--single-process',
             '--disable-gpu'
         ],
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || null
+        executablePath: puppeteer.executablePath()
     }
 });
 
