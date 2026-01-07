@@ -1,6 +1,0 @@
-node_modules/
-sessions/
-auth_info/
-.env
-*.log
-.DS_Store
