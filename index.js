@@ -194,6 +194,12 @@ async function handleSend(phone, message, res) {
 
     try {
         let formattedPhone = phone.replace(/\D/g, '');
+
+        // Handle Iraq local format (07... to 9647...)
+        if (formattedPhone.startsWith('07')) {
+            formattedPhone = '964' + formattedPhone.substring(1);
+        }
+
         if (!formattedPhone.endsWith('@c.us')) {
             formattedPhone += '@c.us';
         }
