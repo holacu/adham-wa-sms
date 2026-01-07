@@ -43,22 +43,46 @@ client.on('qr', (qr) => {
     qrcode.generate(qr, { small: true });
 });
 
+// Loading Event
+client.on('loading_screen', (percent, message) => {
+    console.log('LOADING SCREEN', percent, message);
+});
+
+// Log Cleanup Function
+function cleanLogs() {
+    qrCodeData = null;
+    // console.clear(); // Removed as it might hide previous errors on some terminals, but cleans the view
+    console.log('--- SESSION LOGS CLEANED ---');
+}
+
+// Authenticated Event
+client.on('authenticated', () => {
+    console.log('AUTHENTICATED - Session exists or QR scanned');
+    cleanLogs();
+});
+
 // Ready Event
 client.on('ready', () => {
     isReady = true;
-    qrCodeData = null;
-    console.log('WhatsApp Client is READY!');
+    cleanLogs();
+    console.log('WhatsApp Client is READY and CONNECTED!');
 });
 
 // Authentication Failure
 client.on('auth_failure', msg => {
     console.error('AUTHENTICATION FAILURE', msg);
+    isReady = false;
 });
 
 // Disconnected
 client.on('disconnected', (reason) => {
     isReady = false;
+    qrCodeData = null; // Reset QR too so it regenerates
     console.log('Client was logged out', reason);
+    // Try to re-initialize if it was a timeout
+    if (reason === 'NAVIGATION') {
+        process.exit(0); // Restart server
+    }
 });
 
 // Catch unhandled rejections for the client
@@ -93,12 +117,152 @@ app.get('/reset', async (req, res) => {
  * API Endpoints
  */
 
+// Root Dashboard - Mobile-Friendly QR Status Page
+app.get('/', (req, res) => {
+    const baseStyle = `
+        body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            text-align: center;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(10px);
+            border-radius: 20px;
+            padding: 30px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            max-width: 400px;
+            width: 100%;
+        }
+        h1 {
+            margin: 0 0 20px 0;
+            font-size: 24px;
+        }
+        .status-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .success { background: #10b981; }
+        .warning { background: #f59e0b; }
+        .info { background: #3b82f6; }
+        #qrcode {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px 0;
+            display: inline-block;
+        }
+        .refresh-btn {
+            background: white;
+            color: #667eea;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 10px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 15px;
+        }
+    `;
+
+    if (isReady) {
+        return res.send(`
+            <html>
+                <head>
+                    <meta name="viewport" content="width=device-width, initial-scale=1">
+                    <title>WhatsApp Bridge Status</title>
+                    <style>${baseStyle}</style>
+                </head>
+                <body>
+                    <div class="container">
+                        <h1>🎉 متصل بنجاح</h1>
+                        <div class="status-badge success">✓ WhatsApp Connected</div>
+                        <p>السيرفر جاهز لإرسال الرسائل</p>
+                        <button class="refresh-btn" onclick="location.reload()">تحديث</button>
+                    </div>
+                </body>
+            </html>
+        `);
+    }
+
+    if (qrCodeData) {
+        return res.send(`
+            <html>
+                <head>
+                    <meta name="viewport" content="width=device-width, initial-scale=1">
+                    <title>WhatsApp Bridge - Scan QR</title>
+                    <style>${baseStyle}</style>
+                </head>
+                <body>
+                    <div class="container">
+                        <h1>📱 امسح الباركود</h1>
+                        <div class="status-badge warning">⏳ في انتظار الربط</div>
+                        <div id="qrcode"></div>
+                        <p style="font-size: 14px; opacity: 0.9;">افتح واتساب → الأجهزة المرتبطة → ربط جهاز</p>
+                        <button class="refresh-btn" onclick="location.reload()">تحديث</button>
+                    </div>
+                    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+                    <script>
+                        new QRCode(document.getElementById("qrcode"), {
+                            text: "${qrCodeData}",
+                            width: 256,
+                            height: 256
+                        });
+                        // Auto-refresh when connected
+                        setInterval(async () => {
+                            const resp = await fetch('/status');
+                            const data = await resp.json();
+                            if (data.connected) location.reload();
+                        }, 3000);
+                    </script>
+                </body>
+            </html>
+        `);
+    }
+
+    // No QR and not connected - initializing
+    return res.send(`
+        <html>
+            <head>
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+                <title>WhatsApp Bridge Status</title>
+                <style>${baseStyle}</style>
+            </head>
+            <body>
+                <div class="container">
+                    <h1>⚙️ جاري التهيئة</h1>
+                    <div class="status-badge info">🔄 Initializing...</div>
+                    <p>لا توجد طلبات ربط حالياً</p>
+                    <p style="font-size: 14px; opacity: 0.8;">السيرفر يقوم بالتحضير، يرجى الانتظار...</p>
+                    <button class="refresh-btn" onclick="location.reload()">تحديث</button>
+                </div>
+                <script>
+                    setTimeout(() => location.reload(), 5000);
+                </script>
+            </body>
+        </html>
+    `);
+});
+
 // Status Check
 app.get('/status', (req, res) => {
     res.json({
         connected: isReady,
-        qr_required: !!qrCodeData,
-        message: isReady ? 'System Live' : (qrCodeData ? 'Login Required' : 'Initializing...')
+        has_qr: !!qrCodeData,
+        timestamp: new Date().toISOString(),
+        memory: process.memoryUsage(),
+        message: isReady ? 'System Live' : (qrCodeData ? 'Login Required' : 'Initializing/Waiting...')
     });
 });
 
