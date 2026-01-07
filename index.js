@@ -35,7 +35,19 @@ const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
         headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox'] // Critical for Render/Linux environments
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--single-process', // <- this one doesn't works in Windows
+            '--disable-gpu'
+        ],
+        // On Render, we might need to specify the path if not found automatically
+        // executablePath: '/opt/render/.cache/puppeteer/chrome/...' 
+        // But usually "npm install puppeteer" + postinstall fixes it.
     }
 });
 

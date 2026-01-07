@@ -4,13 +4,15 @@
     "description": "WhatsApp Automation Backend for Adham Sky",
     "main": "index.js",
     "scripts": {
-        "start": "node index.js"
+        "start": "node index.js",
+        "postinstall": "npx puppeteer browsers install chrome"
     },
     "dependencies": {
         "express": "^4.18.2",
         "whatsapp-web.js": "^1.23.0",
         "qrcode": "^1.5.3",
         "cors": "^2.8.5",
-        "body-parser": "^1.20.2"
+        "body-parser": "^1.20.2",
+        "puppeteer": "^22.0.0"
     }
 }
