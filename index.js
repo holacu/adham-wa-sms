@@ -18,7 +18,16 @@ const client = new Client({
     }),
     puppeteer: {
         headless: true,
-        args: ['--no-sandbox', '--disable-setuid-sandbox'],
+        args: [
+            '--no-sandbox',
+            '--disable-setuid-sandbox',
+            '--disable-dev-shm-usage',
+            '--disable-accelerated-2d-canvas',
+            '--no-first-run',
+            '--no-zygote',
+            '--single-process', // <- Higher stability on small RAM
+            '--disable-gpu'
+        ],
         executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || null
     }
 });
@@ -111,7 +120,7 @@ app.get('/qr-image', (req, res) => {
         res.setHeader('Content-Disposition', 'attachment; filename=whatsapp-qr.png');
     }
 
-    const code = qr.image(qrCodeData, { type: 'png', size: 10 });
+    const code = qr.image(qrCodeData, { type: 'png', size: 20 });
     res.type('png');
     code.pipe(res);
 });
