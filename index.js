@@ -16,8 +16,9 @@ const client = new Client({
     authStrategy: new LocalAuth({
         dataPath: './sessions'
     }),
-    authTimeoutMs: 120000, // 2 minutes to handle slow free-tier handshake
-    qrMaxRetries: 15,      // More retries before timing out
+    authTimeoutMs: 300000, // 5 minutes - much longer for slow servers
+    qrMaxRetries: 3,       // Fewer retries but longer timeout per QR
+    qrTimeoutMs: 60000,    // 60 seconds per QR code
     puppeteer: {
         headless: true,
         args: [
@@ -25,7 +26,9 @@ const client = new Client({
             '--disable-setuid-sandbox',
             '--disable-dev-shm-usage',
             '--no-zygote',
-            '--disable-gpu'
+            '--disable-gpu',
+            '--disable-software-rasterizer',
+            '--disable-extensions'
         ],
         userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || null
@@ -34,30 +37,36 @@ const client = new Client({
 
 let qrCodeData = null;
 let isReady = false;
+let qrCount = 0;
 
 // QR Code Event
 client.on('qr', (qr) => {
+    qrCount++;
     qrCodeData = qr;
     isReady = false;
-    console.log('QR RECEIVED', qr);
+    console.log(`[${new Date().toISOString()}] QR CODE #${qrCount} GENERATED`);
+    console.log('QR Data:', qr.substring(0, 50) + '...');
     qrcode.generate(qr, { small: true });
 });
 
 // Loading Event
 client.on('loading_screen', (percent, message) => {
-    console.log('LOADING SCREEN', percent, message);
+    console.log(`[${new Date().toISOString()}] LOADING: ${percent}% - ${message}`);
+    if (percent === 100) {
+        console.log('⏳ Loading complete, waiting for READY event...');
+    }
 });
 
 // Log Cleanup Function
 function cleanLogs() {
     qrCodeData = null;
-    // console.clear(); // Removed as it might hide previous errors on some terminals, but cleans the view
-    console.log('--- SESSION LOGS CLEANED ---');
+    qrCount = 0;
+    console.log(`[${new Date().toISOString()}] --- SESSION LOGS CLEANED ---`);
 }
 
 // Authenticated Event
 client.on('authenticated', () => {
-    console.log('AUTHENTICATED - Session exists or QR scanned');
+    console.log(`[${new Date().toISOString()}] ✅ AUTHENTICATED - Session exists or QR scanned`);
     cleanLogs();
 });
 
@@ -65,29 +74,37 @@ client.on('authenticated', () => {
 client.on('ready', () => {
     isReady = true;
     cleanLogs();
-    console.log('WhatsApp Client is READY and CONNECTED!');
+    console.log(`[${new Date().toISOString()}] 🎉 WhatsApp Client is READY and CONNECTED!`);
+    console.log('✓ Server is now ready to send messages');
 });
 
 // Authentication Failure
 client.on('auth_failure', msg => {
-    console.error('AUTHENTICATION FAILURE', msg);
+    console.error(`[${new Date().toISOString()}] ❌ AUTHENTICATION FAILURE:`, msg);
     isReady = false;
 });
 
 // Disconnected
 client.on('disconnected', (reason) => {
     isReady = false;
-    qrCodeData = null; // Reset QR too so it regenerates
-    console.log('Client was logged out', reason);
+    qrCodeData = null;
+    qrCount = 0;
+    console.log(`[${new Date().toISOString()}] ⚠️  DISCONNECTED - Reason:`, reason);
     // Try to re-initialize if it was a timeout
-    if (reason === 'NAVIGATION') {
-        process.exit(0); // Restart server
+    if (reason === 'NAVIGATION' || reason === 'LOGOUT') {
+        console.log('Restarting server...');
+        setTimeout(() => process.exit(0), 2000);
     }
+});
+
+// Change Event (for debugging)
+client.on('change_state', state => {
+    console.log(`[${new Date().toISOString()}] STATE CHANGE:`, state);
 });
 
 // Catch unhandled rejections for the client
 client.initialize().catch(err => {
-    console.error('CLIENT INITIALIZE ERROR:', err);
+    console.error(`[${new Date().toISOString()}] ❌ CLIENT INITIALIZE ERROR:`, err);
 });
 
 // Emergency Reset Endpoint
