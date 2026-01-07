@@ -60,8 +60,39 @@ app.get('/status', (req, res) => {
     res.json({
         connected: isReady,
         qr_required: !!qrCodeData,
-        message: isReady ? 'Sytem Live' : (qrCodeData ? 'Login Required' : 'Initializing...')
+        message: isReady ? 'System Live' : (qrCodeData ? 'Login Required' : 'Initializing...')
     });
+});
+
+// QR Logic - Serve HTML Page for Browser
+app.get('/qr', (req, res) => {
+    if (isReady) {
+        return res.send('<h1>WhatsApp is already CONNECTED!</h1><script>setTimeout(()=>window.close(), 2000)</script>');
+    }
+    if (!qrCodeData) {
+        return res.send('<h1>Initializing... Please refresh in 5 seconds.</h1><script>setTimeout(()=>location.reload(), 5000)</script>');
+    }
+
+    // Simple HTML to show QR
+    res.send(`
+        <html>
+            <body style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:100vh; background:#111; color:white; font-family:sans-serif">
+                <h1>Link Adham Internet WA</h1>
+                <div id="qrcode" style="background:white; padding:20px; border-radius:10px"></div>
+                <p>Scan this QR code with your WhatsApp Link Device</p>
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+                <script>
+                    new QRCode(document.getElementById("qrcode"), "${qrCodeData}");
+                    // Auto refresh when ready
+                    setInterval(async () => {
+                        const resp = await fetch('/status');
+                        const data = await resp.json();
+                        if (data.connected) location.reload();
+                    }, 3000);
+                </script>
+            </body>
+        </html>
+    `);
 });
 
 // Send Message Endpoint (Manual/General)
