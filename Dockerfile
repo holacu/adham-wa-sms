@@ -22,10 +22,10 @@ RUN npm install
 COPY . .
 
 # Environment variables
-ENV PORT=3000
+ENV PORT=80
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
 
-EXPOSE 3000
+EXPOSE 80
 
 CMD [ "npm", "start" ]
