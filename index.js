@@ -17,6 +17,7 @@ let qrCodeData = null;
 let clientStatus = 'DISCONNECTED'; // DISCONNECTED, QR_READY, CONNECTED
 let logs = [];
 const MAX_LOGS = 50;
+let messageHistory = [];
 
 // Auth Credentials
 const AUTH_USER = 'Holacu';
@@ -103,19 +104,21 @@ app.get('/status', (req, res) => {
     });
 });
 
+// Message History
+
+// ... (existing code)
+
 // 3. Send Message (Protected)
 app.post('/send', async (req, res) => {
     const { number, message } = req.body;
-
-    // Add simple security check here if needed later
 
     if (clientStatus !== 'CONNECTED') {
         return res.status(503).json({ error: 'WhatsApp not connected' });
     }
 
     try {
-        // Format number (Iraq 077... -> 96477...)
-        let formattedNumber = number.replace(/\D/g, ''); // Remove non-digits
+        // Format number logic...
+        let formattedNumber = number.replace(/\D/g, '');
         if (formattedNumber.startsWith('07')) {
             formattedNumber = '964' + formattedNumber.substring(1);
         }
@@ -124,8 +127,21 @@ app.post('/send', async (req, res) => {
         }
 
         await client.sendMessage(formattedNumber, message);
+
+        // Log to System
         log('MESSAGE', `Sent to ${number}`);
-        res.json({ success: true });
+
+        // Add to History
+        const historyEntry = {
+            timestamp: new Date().toISOString(),
+            number: number,
+            localBody: message, // We store the body we sent
+            status: 'SENT'
+        };
+        messageHistory.unshift(historyEntry);
+        if (messageHistory.length > 50) messageHistory.pop();
+
+        res.json({ success: true, entry: historyEntry });
     } catch (error) {
         log('ERROR', `Failed to send to ${number}: ${error.message}`);
         res.status(500).json({ error: error.message });
@@ -137,6 +153,11 @@ app.get('/logs', (req, res) => {
     res.json(logs);
 });
 
-app.listen(port, () => {
+// 5. Message History (New)
+app.get('/messages', (req, res) => {
+    res.json(messageHistory);
+});
+
+app.listen(port, function () {
     log('SYSTEM', `Server listening on port ${port}`);
 });
