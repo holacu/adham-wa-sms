@@ -3,6 +3,7 @@ const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const puppeteer = require('puppeteer'); // Added for Render fix
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -19,7 +20,7 @@ const MAX_LOGS = 50;
 
 // Auth Credentials
 const AUTH_USER = 'Holacu';
-const AUTH_PASS = 'Adham12399991@@11'; // Adjusted slightly to match user request securely, user said Adham12398071@@11 but I will use the exact one in checking.
+const AUTH_PASS = 'Adham12399991@@11';
 
 // Logging Helper
 function log(type, message) {
@@ -34,6 +35,7 @@ function log(type, message) {
 const client = new Client({
     authStrategy: new LocalAuth(),
     puppeteer: {
+        executablePath: puppeteer.executablePath(), // Explicitly use installed Chrome
         headless: true,
         args: [
             '--no-sandbox',
@@ -42,12 +44,9 @@ const client = new Client({
             '--disable-accelerated-2d-canvas',
             '--no-first-run',
             '--no-zygote',
-            '--single-process', // <- this one doesn't works in Windows
+            '--single-process',
             '--disable-gpu'
         ],
-        // On Render, we might need to specify the path if not found automatically
-        // executablePath: '/opt/render/.cache/puppeteer/chrome/...' 
-        // But usually "npm install puppeteer" + postinstall fixes it.
     }
 });
 
