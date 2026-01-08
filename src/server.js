@@ -9,8 +9,8 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-// Initialize WhatsApp client on startup
-whatsapp.initialize();
+// Initialize WhatsApp client on startup - DISABLED for on-demand
+// whatsapp.initialize();
 
 app.get('/', (req, res) => {
     res.send('SkyServer WhatsApp Automation API is running.');

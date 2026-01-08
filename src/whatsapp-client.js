@@ -24,6 +24,7 @@ class WhatsAppClient {
         this.qrCodeData = null;
         this.status = 'DISCONNECTED'; // DISCONNECTED, WAITING_FOR_QR, CONNECTED
         this.readyTimestamp = null;
+        this.initTimeout = null;
 
         this.initializeEvents();
     }
@@ -45,6 +46,10 @@ class WhatsAppClient {
         this.client.on('authenticated', () => {
             console.log('AUTHENTICATED');
             this.status = 'AUTHENTICATED'; // Intermediate state
+            if (this.initTimeout) {
+                clearTimeout(this.initTimeout);
+                this.initTimeout = null;
+            }
         });
 
         this.client.on('auth_failure', msg => {
@@ -58,18 +63,51 @@ class WhatsAppClient {
             this.qrCodeData = null;
             // implementing auto-reconnect logic if needed, 
             // but usually we want to re-init explicitly or let the container restart
-            this.client.initialize();
+            // this.client.initialize(); // DISABLED for on-demand
         });
     }
 
     async initialize() {
-        if (this.status === 'CONNECTED') return;
+        if (this.status === 'CONNECTED' || this.status === 'WAITING_FOR_QR') {
+            console.log('Client already initializing or connected');
+            return;
+        }
+
+        console.log('Initializing client on demand...');
+        this.status = 'INITIALIZING';
+
         try {
+            // Set 5-minute timeout
+            if (this.initTimeout) clearTimeout(this.initTimeout);
+            this.initTimeout = setTimeout(async () => {
+                console.log('Initialization timed out (5 mins). Destroying client...');
+                await this.destroy();
+            }, 5 * 60 * 1000);
+
             await this.client.initialize();
         } catch (error) {
             console.error('Failed to initialize client:', error);
             this.status = 'DISCONNECTED';
+            // Try to cleanup if init failed
+            try { await this.client.destroy(); } catch (e) { }
         }
+    }
+
+    async destroy() {
+        console.log('Destroying client session...');
+        try {
+            if (this.initTimeout) {
+                clearTimeout(this.initTimeout);
+                this.initTimeout = null;
+            }
+            await this.client.destroy();
+            // We need to re-instantiate client or just ensure it can be re-initialized.
+            // whatsapp-web.js client can usually be re-initialized after destroy.
+        } catch (error) {
+            console.error('Error destroying client:', error);
+        }
+        this.status = 'DISCONNECTED';
+        this.qrCodeData = null;
     }
 
     async getQrCode() {
@@ -120,6 +158,8 @@ class WhatsAppClient {
     async logout() {
         try {
             await this.client.logout();
+            // Logout implicitly destroys the session in some versions, but let's be safe
+            await this.destroy();
             this.status = 'DISCONNECTED';
         } catch (error) {
             console.error('Error logging out:', error);
