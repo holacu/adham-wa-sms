@@ -1,5 +1,7 @@
 const { Client, LocalAuth } = require('whatsapp-web.js');
 const qrcode = require('qrcode');
+const fs = require('fs');
+const path = require('path');
 
 class WhatsAppClient {
     constructor() {
@@ -83,6 +85,18 @@ class WhatsAppClient {
                 console.log('Initialization timed out (5 mins). Destroying client...');
                 await this.destroy();
             }, 5 * 60 * 1000);
+
+            // FORCE CLEANUP: Remove SingletonLock if exists to prevent "Profile in use" error
+            try {
+                const authPath = path.join(process.cwd(), '.wwebjs_auth/session');
+                const lockPath = path.join(authPath, 'SingletonLock');
+                if (fs.existsSync(lockPath)) {
+                    console.log('Found stale SingletonLock, removing it...');
+                    fs.unlinkSync(lockPath);
+                }
+            } catch (err) {
+                console.log('Error cleaning up lock file (ignorable):', err.message);
+            }
 
             await this.client.initialize();
         } catch (error) {
